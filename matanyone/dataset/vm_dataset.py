@@ -47,8 +47,8 @@ class VideoMatteDataset(Dataset):
                                             for clip in self.background_video_clips]
             
             self.videomatte_dir = config['fgr_video_directory']
-            self.videomatte_clips = sorted(os.listdir(os.path.join(config['fgr_video_directory'], 'fgr_new')))
-            self.videomatte_frames = [sorted(os.listdir(os.path.join(config['fgr_video_directory'], 'fgr_new', clip))) 
+            self.videomatte_clips = sorted(os.listdir(os.path.join(config['fgr_video_directory'], 'fgr')))
+            self.videomatte_frames = [sorted(os.listdir(os.path.join(config['fgr_video_directory'], 'fgr', clip))) 
                                     for clip in self.videomatte_clips]
             self.videomatte_idx = [(clip_idx, frame_idx) 
                                 for clip_idx in range(len(self.videomatte_clips)) 
@@ -96,7 +96,7 @@ class VideoMatteDataset(Dataset):
         fgrs, phas = [], []
         for i in self.seq_sampler(self.seq_length):
             frame = self.videomatte_frames[clip_idx][(frame_idx + i) % frame_count]
-            with Image.open(os.path.join(self.videomatte_dir, 'fgr_new', clip, frame)) as fgr, \
+            with Image.open(os.path.join(self.videomatte_dir, 'fgr', clip, frame)) as fgr, \
                  Image.open(os.path.join(self.videomatte_dir, 'pha', clip, frame)) as pha:
                     fgr = self._downsample_if_needed(fgr.convert('RGB'))
                     pha = self._downsample_if_needed(pha.convert('L'))

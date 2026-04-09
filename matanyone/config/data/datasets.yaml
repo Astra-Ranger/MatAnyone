@@ -1,38 +1,38 @@
 # video matting datasets
 vm_datasets:
-  base: /data/pqyang/data/mat_vid
+  base: /public/share/cit_xdcun/sirui_data
   VM800:
-    fgr_video_directory: VM800 # VideoMatte240K as alternative
-    bg_img_directory: BG20k/train
-    bg_video_directory: DVM/train
+    fgr_video_directory: VideoMatte240K_JPEG_HD/train # VideoMatte240K as alternative
+    bg_img_directory: BG-20k/train
+    bg_video_directory: DVM/fg/video/train
     multiplier: 1
     frame_interval: 1
 
 # image matting datasets
 im_datasets:
-  base: /data/pqyang/data/
+  base: /public/share/cit_xdcun/sirui_data
   ImageMatte:
-    fgr_img_directory: mat_img/ImageMatte/train
-    bg_img_directory: mat_vid/BG20k/train
-    bg_video_directory: mat_vid/DVM/train
+    fgr_img_directory: imagematte/Training_set/Adobe-licensed images
+    bg_img_directory: BG-20k/train
+    bg_video_directory: DVM/fg/video/train
     multiplier: 1
 
 # video segmentation datasets
 vos_datasets:
-  base: /data/pqyang/data/seg_vid
+  base: /public/share/cit_xdcun/sirui_data
   YouTubeVOS:
-    image_directory: YouTubeVIS/train/JPEGImages
-    mask_directory: YouTubeVIS/train/instances.json
+    image_directory: OpenDataLab___YouTubeVIS2019/raw/train/JPEGImages
+    mask_directory: OpenDataLab___YouTubeVIS2019/raw/train/meta.json
     multiplier: 1
     frame_interval: 5
 
 # image segmentation datasets
 image_datasets:
-  base: /data/pqyang/data/seg_img
+  base: /public/share/cit_xdcun/sirui_data
   COCO:
-    imgdir: coco/train2017
-    anndir: coco/panoptic_train2017
-    annfile: coco/annotations/panoptic_train2017.json
+    imgdir: coco_panoptic/train2017
+    anndir: coco_panoptic/panoptic_annotations_trainval2017/panoptic_train2017
+    annfile: coco_panoptic/panoptic_annotations_trainval2017/panoptic_train2017.json
     multiplier: 1
   SPD:
     imgdir: SuperviselyPersonDataset/img

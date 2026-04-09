@@ -35,6 +35,8 @@ class VOSTrainDataset(Dataset):
         self.videos: Dict[List[str]] = {}
         self.frames: Dict[Dict[str, List[str]]] = {}
         self.video_frames: List[Tuple(str, str, int)] = [] # type: ignore
+        self.video_masks = {}
+        self.video_mask_formats = {}
 
         for dataset, config in data_configs.items():
             self.frames[dataset] = {}
@@ -49,26 +51,56 @@ class VOSTrainDataset(Dataset):
             with open(gt_root) as f:
                 data = json.load(f)
 
-            self.masks = {}
-            for ann in data['annotations']:
-                if ann['category_id'] == 26: # person
-                    video_id = ann['video_id']
-                    if video_id not in self.masks:
-                        self.masks[video_id] = [[] for _ in range(len(ann['segmentations']))]
-                    for frame, mask in zip(self.masks[video_id], ann['segmentations']):
-                        frame.append(mask)
+            if 'annotations' in data:
+                for ann in data['annotations']:
+                    if ann['category_id'] == 26: # person
+                        video_id = ann['video_id']
+                        if video_id not in self.video_masks:
+                            self.video_masks[video_id] = [[] for _ in range(len(ann['segmentations']))]
+                        for frame, mask in zip(self.video_masks[video_id], ann['segmentations']):
+                            frame.append(mask)
 
-            # Find all videos
-            for video in data['videos']:
-                video_id = video['id']
-                if video_id in self.masks:
-                    vid = video['file_names'][0].split("/")[0]
+                # Find all videos
+                for video in data['videos']:
+                    video_id = video['id']
+                    if video_id in self.video_masks:
+                        vid = video['file_names'][0].split("/")[0]
+                        frames = sorted(os.listdir(os.path.join(im_root, vid)))
+                        if len(frames) < seq_length:
+                            continue
+                        self.video_mask_formats[video_id] = 'rle'
+                        self.frames[dataset][vid] = frames
+                        self.videos[dataset].append(vid)
+                        self.video_frames.extend([(dataset, video_id, vid, i)
+                                                for i, _ in enumerate(frames)] * multiplier)
+                        total_frames += len(frames)
+            else:
+                ann_root = config.get('annotation_directory')
+                if ann_root is None:
+                    ann_root = path.join(path.dirname(im_root), 'Annotations')
+                elif not path.isabs(ann_root):
+                    ann_root = path.join(path.dirname(im_root), ann_root)
+
+                for vid, video in data['videos'].items():
+                    person_ids = sorted(
+                        int(obj_id) for obj_id, obj in video.get('objects', {}).items()
+                        if obj.get('category') == 'person'
+                    )
+                    if len(person_ids) == 0:
+                        continue
+
                     frames = sorted(os.listdir(os.path.join(im_root, vid)))
                     if len(frames) < seq_length:
                         continue
+
+                    self.video_masks[vid] = {
+                        'ann_root': ann_root,
+                        'object_ids': person_ids,
+                    }
+                    self.video_mask_formats[vid] = 'indexed_png'
                     self.frames[dataset][vid] = frames
                     self.videos[dataset].append(vid)
-                    self.video_frames.extend([(dataset, video_id, vid, i)
+                    self.video_frames.extend([(dataset, vid, vid, i)
                                             for i, _ in enumerate(frames)] * multiplier)
                     total_frames += len(frames)
 
@@ -120,6 +152,26 @@ class VOSTrainDataset(Dataset):
         self.output_image_transform = transforms.Compose([
             transforms.ToTensor(),
         ])
+
+    def _load_segmentation_mask(self, video_id, video, frame_name, frame_idx, image_size):
+        W, H = image_size
+        mask_format = self.video_mask_formats[video_id]
+
+        if mask_format == 'rle':
+            seg_info = self.video_masks[video_id][frame_idx]
+            seg = np.zeros((H, W), dtype=np.uint8)
+            for i, mask in enumerate(seg_info):
+                if mask is not None:
+                    this_seg = self._decode_rle(mask, i)
+                    seg[this_seg == 255] = (i+1)  # for multi-object
+            return seg
+
+        ann_root = self.video_masks[video_id]['ann_root']
+        object_ids = self.video_masks[video_id]['object_ids']
+        ann_path = path.join(ann_root, video, frame_name[:-4] + '.png')
+        seg = np.array(Image.open(ann_path), dtype=np.uint8)
+        seg[~np.isin(seg, object_ids)] = 0
+        return seg
     
     def _decode_rle(self, rle, i):
         H, W = rle['size']
@@ -238,12 +290,7 @@ class VOSTrainDataset(Dataset):
                             # decode mask
                             this_im = Image.open(path.join(im_path, jpg_name)).convert('RGB')
                             W, H = this_im.size
-                            seg_info = self.masks[video_id][f_idx]
-                            seg = np.zeros((H, W), dtype=np.uint8)
-                            for i, mask in enumerate(seg_info):
-                                if mask is not None:
-                                    this_seg = self._decode_rle(mask, i)
-                                    seg[this_seg == 255] = (i+1)  # for multi-object
+                            seg = self._load_segmentation_mask(video_id, video, jpg_name, f_idx, (W, H))
                             this_gt = Image.fromarray(seg).convert("P")
                             this_gt = self.sequence_mask_dual_transform(this_gt)
                             this_gt = np.array(this_gt)
@@ -263,12 +310,7 @@ class VOSTrainDataset(Dataset):
                         # decode mask
                         this_im = Image.open(path.join(im_path, jpg_name)).convert('RGB')
                         W, H = this_im.size
-                        seg_info = self.masks[video_id][f_idx]
-                        seg = np.zeros((H, W), dtype=np.uint8)
-                        for i, mask in enumerate(seg_info):
-                            if mask is not None:
-                                this_seg = self._decode_rle(mask, i)
-                                seg[this_seg == 255] = (i+1)  # for multi-object
+                        seg = self._load_segmentation_mask(video_id, video, jpg_name, f_idx, (W, H))
                         this_gt = Image.fromarray(seg).convert("P")
                         this_gt = self.sequence_mask_dual_transform(this_gt)
                         this_gt = np.array(this_gt)
