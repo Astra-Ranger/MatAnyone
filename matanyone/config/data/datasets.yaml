@@ -4,7 +4,7 @@ vm_datasets:
   VM800:
     fgr_video_directory: VideoMatte240K_JPEG_HD/train # VideoMatte240K as alternative
     bg_img_directory: BG-20k/train
-    bg_video_directory: DVM/fg/video/train
+    bg_video_directory: background_videos/BackgroundVideosTrain
     multiplier: 1
     frame_interval: 1
 
@@ -14,7 +14,7 @@ im_datasets:
   ImageMatte:
     fgr_img_directory: imagematte/Training_set/Adobe-licensed images
     bg_img_directory: BG-20k/train
-    bg_video_directory: DVM/fg/video/train
+    bg_video_directory: background_videos/BackgroundVideosTrain
     multiplier: 1
 
 # video segmentation datasets
@@ -39,7 +39,6 @@ image_datasets:
     anndir: SuperviselyPersonDataset/seg
     annfile: null
     multiplier: 1
-
 
 
 
